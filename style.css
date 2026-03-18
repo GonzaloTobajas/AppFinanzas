@@ -135,3 +135,25 @@ body {
     color: white;
     border-color: #3b82f6;
 }
+
+/* Ocultar barra de scroll pero permitir el movimiento */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+}
+
+/* Evitar que el texto de los botones se rompa en dos líneas */
+.tab-btn {
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+/* Ajuste preventivo para el header en móviles muy estrechos */
+@media (max-width: 640px) {
+    h1 { font-size: 1.8rem !important; }
+    #total-neto { font-size: 1.8rem !important; }
+}

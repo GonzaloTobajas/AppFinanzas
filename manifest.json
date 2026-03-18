@@ -1,0 +1,17 @@
+{
+  "name": "Mis Finanzas Pro",
+  "short_name": "Finanzas",
+  "description": "Control de gastos, cripto y bolsa",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5511/5511413.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -21,6 +21,23 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
     <link rel="stylesheet" href="style.css">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5511/5511413.png">
+
+    <script>
+    // Registrar el Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('PWA lista!', reg))
+            .catch(err => console.log('Fallo PWA', err));
+        });
+    }
+    </script>
 </head>
 <body class="p-4 md:p-10 min-h-screen text-slate-900 dark:text-slate-100 pb-24 md:pb-10">
 

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>PascuFinanzas | Pro Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: { colors: { brand: { primary: '#3b82f6', dark: '#020617' } } }
+            }
+        }
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="p-4 md:p-10 min-h-screen text-slate-900 dark:text-slate-100 pb-24 md:pb-10">
+
+    <div id="goals-hub" class="ai-panel">
+        <div class="flex justify-between items-center mb-10">
+            <div>
+                <h2 class="text-2xl font-black italic uppercase leading-none text-blue-500">MIS OBJETIVOS</h2>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Metas Financieras</p>
+            </div>
+            <button onclick="toggleGoals()" class="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold">✕</button>
+        </div>
+        <div id="goals-list-mobile" class="space-y-4"></div>
+        <div class="mt-10 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl">
+            <h3 class="text-xs font-black uppercase mb-4 tracking-tighter">Añadir Meta</h3>
+            <div class="space-y-3">
+                <input type="text" id="goal-name" placeholder="Nombre (ej: Casa)" class="input-pro">
+                <input type="number" id="goal-target" placeholder="Objetivo (€)" class="input-pro">
+                <button onclick="addGoal()" class="w-full py-4 bg-blue-600 text-white font-black rounded-xl text-xs uppercase">Crear Objetivo</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 bg-blue-600 rounded-[22px] flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-blue-500/30">P</div>
+                <div>
+                    <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none">PASCU<span class="text-blue-600">FINANZAS</span></h1>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Wealth Management</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-row-reverse md:flex-row w-full md:w-auto items-center justify-between md:justify-end gap-6">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleCurrency()" id="btn-currency" class="w-14 h-14 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-900 text-sm font-black shadow-sm text-blue-600 transition-all">EUR</button>
+                    <button onclick="toggleDarkMode()" class="w-14 h-14 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-900 text-xl shadow-sm">🌓</button>
+                </div>
+                <div class="text-left md:text-right">
+                    <div class="flex items-center gap-2 justify-end">
+                        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Patrimonio Neto</p>
+                        <button onclick="togglePrivacy()" class="text-slate-400 hover:text-blue-500 transition-colors">👁️</button>
+                    </div>
+                    <p id="total-neto" class="text-4xl font-black tabular-nums tracking-tighter text-slate-900 dark:text-white transition-all duration-300">0.00 €</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-7 space-y-8">
+                
+                <div class="bento-card">
+                    <h2 class="text-[11px] font-black uppercase tracking-widest mb-6 text-slate-400">Registrar Actividad</h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <select id="input-category" class="input-pro" onchange="updateFormUI()">
+                            <option value="banco">🏦 Añadir Cuenta Bancaria</option>
+                            <option value="ingreso">🟢 Registrar Ingreso</option>
+                            <option value="gasto">🔴 Registrar Gasto</option>
+                            <option value="fondos">📊 Añadir Fondo (Monetario/Indexado)</option>
+                            <option value="inversiones">📈 Añadir Acción (Bolsa)</option>
+                            <option value="cripto" selected>₿ Añadir Cripto</option>
+                        </select>
+                        
+                        <select id="input-bank-select" class="input-pro hidden"></select>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                        <input type="text" id="input-name" placeholder="Ticker (ej: BTC, AAPL)" class="input-pro sm:col-span-1">
+                        <input type="number" id="input-val1" placeholder="Cantidad / Importe" class="input-pro sm:col-span-1">
+                        <input type="number" id="input-val2" placeholder="V. Liquidativo (€)" class="input-pro hidden sm:col-span-1">
+                    </div>
+
+                    <button id="btn-add" onclick="addItem()" class="w-full bg-blue-600 text-white font-black py-5 rounded-2xl text-sm uppercase tracking-widest transition-all">
+                        Añadir al Portfolio
+                    </button>
+                </div>
+
+                <div class="bento-card relative min-h-[400px]">
+                    <div class="flex items-center justify-between mb-8 overflow-x-auto pb-2">
+                        <div class="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-full">
+                            <button onclick="setTab('banco')" id="tab-banco" class="tab-btn min-w-[70px]">Bancos</button>
+                            <button onclick="setTab('fondos')" id="tab-fon" class="tab-btn min-w-[70px]">Fondos</button>
+                            <button onclick="setTab('inversiones')" id="tab-inv" class="tab-btn min-w-[70px]">Bolsa</button>
+                            <button onclick="setTab('cripto')" id="tab-cri" class="tab-btn min-w-[70px]">Tokens</button>
+                            <button onclick="setTab('movimientos')" id="tab-mov" class="tab-btn min-w-[70px]">Movimientos</button>
+                            <button onclick="setTab('analisis')" id="tab-ana" class="tab-btn min-w-[70px] active">Análisis</button>
+                        </div>
+                    </div>
+
+                    <div id="list-container" class="space-y-3 hidden"></div>
+
+                    <div id="analysis-container" class="space-y-6">
+                        <div class="flex flex-col gap-4">
+                            <h3 class="text-[11px] font-black uppercase tracking-widest text-slate-400">Selecciona Bancos a visualizar</h3>
+                            <div id="analysis-bank-selector" class="flex flex-wrap gap-2">
+                                </div>
+                        </div>
+                        <div class="relative h-[300px] w-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/50 shadow-inner">
+    
+                            <div class="absolute top-3 right-3 flex flex-col gap-1 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-1 shadow-sm border border-slate-200 dark:border-slate-700 z-10">
+                                <button onclick="zoomChart(1.2)" class="w-7 h-7 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-500 rounded-lg transition-colors font-black text-lg leading-none" title="Acercar">+</button>
+                                <button onclick="zoomChart(0.8)" class="w-7 h-7 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-500 rounded-lg transition-colors font-black text-lg leading-none" title="Alejar">-</button>
+                                <div class="w-full h-[1px] bg-slate-200 dark:bg-slate-700 my-[2px]"></div>
+                                <button onclick="resetChartZoom()" class="w-7 h-7 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-500 rounded-lg transition-colors text-sm" title="Restaurar vista">↺</button>
+                            </div>
+
+                            <canvas id="balanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 space-y-8">
+                <div class="bento-card">
+                    <h2 class="text-[11px] font-black uppercase tracking-widest mb-8 text-slate-400">Riesgo & Diversificación</h2>
+                    <div class="h-10 w-full bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden flex mb-6 shadow-inner">
+                        <div id="bar-b" class="h-full bg-slate-400 transition-all duration-1000" style="width: 0%"></div>
+                        <div id="bar-i" class="h-full bg-blue-600 transition-all duration-1000" style="width: 0%"></div>
+                        <div id="bar-c" class="h-full bg-emerald-500 transition-all duration-1000" style="width: 0%"></div>
+                        <div id="bar-t" class="h-full bg-blue-400 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        <div><div class="w-3 h-3 bg-slate-400 rounded-full mx-auto mb-1"></div> Bancos <p id="p-b" class="font-black text-slate-900 dark:text-white text-xs">0%</p></div>
+                        <div><div class="w-3 h-3 bg-blue-600 rounded-full mx-auto mb-1"></div> Bolsa <p id="p-i" class="font-black text-slate-900 dark:text-white text-xs">0%</p></div>
+                        <div><div class="w-3 h-3 bg-emerald-500 rounded-full mx-auto mb-1"></div> Fondos <p id="p-f" class="font-black text-slate-900 dark:text-white text-xs">0%</p></div>
+                        <div><div class="w-3 h-3 bg-blue-400 rounded-full mx-auto mb-1"></div> Tokens <p id="p-c" class="font-black text-slate-900 dark:text-white text-xs">0%</p></div>
+                    </div>
+                </div>
+
+                <div class="bento-card hidden lg:block">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-[11px] font-black uppercase tracking-widest text-slate-400">Objetivos</h2>
+                        <button onclick="toggleGoals()" class="text-[10px] font-black text-blue-500 uppercase">+ Nuevo</button>
+                    </div>
+                    <div id="goals-list-pc" class="space-y-6"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-6 right-6 flex items-center gap-3 lg:hidden z-50">
+        <button onclick="toggleGoals()" class="w-16 h-16 bg-blue-600 text-white text-2xl flex items-center justify-center rounded-full shadow-2xl active:scale-90 transition-transform">🎯</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

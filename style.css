@@ -5,11 +5,11 @@ body {
     background-color: #f8fafc; 
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
+    /* Margen superior dinámico para el Notch/Reloj */
+    padding-top: calc(env(safe-area-inset-top) + 1rem) !important;
 }
 
-.dark body { 
-    background-color: #020617; 
-}
+.dark body { background-color: #020617; }
 
 .bento-card { 
     background: white; 
@@ -19,10 +19,7 @@ body {
     border: 1px solid #f1f5f9;
 }
 
-.dark .bento-card { 
-    background: #0f172a; 
-    border: 1px solid #1e293b; 
-}
+.dark .bento-card { background: #0f172a; border: 1px solid #1e293b; }
 
 .input-pro {
     background: #f1f5f9; 
@@ -37,145 +34,65 @@ body {
     color: #1e293b;
 }
 
-.dark .input-pro { 
-    background: #1e293b; 
-    color: #f1f5f9; 
+.dark .input-pro { background: #1e293b; color: #f1f5f9; }
+.input-pro:focus { border-color: #3b82f6; background: white; }
+
+/* --- BLOQUE DE BOTONES EN CUADRÍCULA (FIXED) --- */
+.grid-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+    width: 100% !important;
 }
 
-.input-pro:focus { 
-    border-color: #3b82f6; 
-    background: white; 
-}
-
-.tab-btn { 
-    flex: 1; 
-    text-align: center;
-    padding: 12px 6px; 
-    border-radius: 14px; 
-    font-weight: 700; 
-    font-size: 11px; 
-    color: #64748b; 
-    transition: all 0.2s;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-.tab-btn.active { 
-    background: #3b82f6; 
-    color: white; 
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); 
-}
-
-.dark .tab-btn:not(.active) {
-    color: #94a3b8;
-}
-
-.ai-panel {
-    position: fixed; 
-    top: 0; 
-    right: -100%; 
-    width: 100%; 
-    max-width: 450px; 
-    height: 100%;
-    background: white; 
-    z-index: 100; 
-    transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: -10px 0 30px rgba(0,0,0,0.1); 
-    padding: 24px; 
-    overflow-y: auto;
-}
-
-.dark .ai-panel { 
-    background: #0f172a; 
-    border-left: 1px solid #1e293b; 
-}
-
-.ai-panel.open { 
-    right: 0; 
-}
-
-@keyframes spin { 
-    from { transform: rotate(0deg); } 
-    to { transform: rotate(360deg); } 
-}
-
-.animate-spin-once { 
-    animation: spin 0.6s ease-in-out; 
-}
-
-.progress-bar { 
-    height: 8px; 
-    border-radius: 4px; 
-    background: #e2e8f0; 
-    overflow: hidden; 
-}
-
-.dark .progress-bar { 
-    background: #1e293b; 
-}
-
-.progress-fill { 
-    height: 100%; 
-    background: #3b82f6; 
-    transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); 
-}
-
-/* Estilos para ocultar scrollbars pero mantener funcionalidad */
-.overflow-x-auto {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none;  /* IE and Edge */
-}
-.overflow-x-auto::-webkit-scrollbar {
-    display: none; /* Chrome, Safari and Opera */
-}
-
-/* Estilo para los check-boxes de bancos en análisis */
-.bank-check:checked + label {
-    background-color: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
-}
-
-/* Ocultar barra de scroll pero permitir el movimiento */
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-.no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
-}
-
-/* Evitar que el texto de los botones se rompa en dos líneas */
-.tab-btn {
-    white-space: nowrap;
-    transition: all 0.2s ease;
-}
-
-/* Ajuste preventivo para el header en móviles muy estrechos */
-@media (max-width: 640px) {
-    h1 { font-size: 1.8rem !important; }
-    #total-neto { font-size: 1.8rem !important; }
-}
-
-/* Botones en cuadrícula para que se vean todos a la vez */
 .tab-btn-grid {
-    @apply flex items-center justify-center py-2 px-1 text-[10px] font-black uppercase tracking-tighter rounded-xl transition-all duration-200;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 2px !important;
+    /* Forzamos tamaño pequeño para que no se desborde nunca */
+    font-size: 9px !important; 
+    font-weight: 900 !important;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    border-radius: 12px;
+    transition: all 0.2s ease;
     background: transparent;
-    color: #94a3b8; /* slate-400 */
+    color: #94a3b8;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
 }
 
 .tab-btn-grid.active {
-    @apply bg-white dark:bg-slate-700 shadow-sm;
-    color: #3b82f6; /* blue-500 */
+    background-color: white !important;
+    color: #3b82f6 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-/* En móviles, forzamos 3 columnas para que quepan las 6 opciones en 2 filas */
+.dark .tab-btn-grid.active {
+    background-color: #1e293b !important;
+    color: #60a5fa !important;
+}
+
+/* --- OTROS ESTILOS --- */
+.ai-panel {
+    position: fixed; top: 0; right: -100%; width: 100%; max-width: 450px; height: 100%;
+    background: white; z-index: 100; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -10px 0 30px rgba(0,0,0,0.1); padding: 24px; overflow-y: auto;
+}
+.dark .ai-panel { background: #0f172a; border-left: 1px solid #1e293b; }
+.ai-panel.open { right: 0; }
+
+.progress-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
+.dark .progress-bar { background: #1e293b; }
+.progress-fill { height: 100%; background: #3b82f6; transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Ocultar scrollbars */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 @media (max-width: 640px) {
-    .grid-cols-3 {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .tab-btn-grid {
-        font-size: 9px; /* Un pelín más pequeño para que no se amontone el texto */
-    }
+    h1 { font-size: 1.8rem !important; }
+    #total-neto { font-size: 2.2rem !important; }
 }

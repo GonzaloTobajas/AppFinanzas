@@ -5,7 +5,6 @@ body {
     background-color: #f8fafc; 
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
-    /* Margen superior dinámico para el Notch/Reloj */
     padding-top: calc(env(safe-area-inset-top) + 1rem) !important;
 }
 
@@ -21,41 +20,36 @@ body {
 
 .dark .bento-card { background: #0f172a; border: 1px solid #1e293b; }
 
-.input-pro {
-    background: #f1f5f9; 
-    border: 2px solid transparent; 
-    border-radius: 16px;
-    padding: 14px 18px; 
-    font-weight: 600; 
-    width: 100%; 
-    outline: none; 
-    transition: all 0.2s;
-    font-size: 16px; 
-    color: #1e293b;
-}
-
-.dark .input-pro { background: #1e293b; color: #f1f5f9; }
-.input-pro:focus { border-color: #3b82f6; background: white; }
-
-/* --- BLOQUE DE BOTONES EN CUADRÍCULA (FIXED) --- */
+/* --- CONTENEDOR DE PESTAÑAS (FILA ÚNICA DE 3 CON SCROLL) --- */
 .grid-tabs {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
+    display: flex !important; /* Usamos flex para permitir el desbordamiento lateral */
+    overflow-x: auto !important; /* Scroll horizontal */
     gap: 6px !important;
     width: 100% !important;
+    scrollbar-width: none; /* Oculta scroll en Firefox */
+    -ms-overflow-style: none; /* Oculta scroll en IE/Edge */
+    scroll-snap-type: x mandatory; /* Hace que las pestañas "encajen" al deslizar */
+    padding: 4px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.grid-tabs::-webkit-scrollbar {
+    display: none; /* Oculta scroll en Chrome/Safari */
 }
 
 .tab-btn-grid {
+    /* CLAVE: Cada botón ocupa exactamente 1/3 del contenedor (menos el gap) */
+    flex: 0 0 calc(33.33% - 4px); 
+    scroll-snap-align: start; /* Punto de anclaje para el scroll */
     display: flex !important;
     align-items: center;
     justify-content: center;
-    padding: 10px 2px !important;
-    /* Forzamos tamaño pequeño para que no se desborde nunca */
-    font-size: 9px !important; 
+    padding: 12px 2px !important;
+    font-size: 10px !important; 
     font-weight: 900 !important;
     text-transform: uppercase;
     letter-spacing: -0.02em;
-    border-radius: 12px;
+    border-radius: 14px;
     transition: all 0.2s ease;
     background: transparent;
     color: #94a3b8;
@@ -67,7 +61,7 @@ body {
 .tab-btn-grid.active {
     background-color: white !important;
     color: #3b82f6 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 .dark .tab-btn-grid.active {
@@ -75,24 +69,31 @@ body {
     color: #60a5fa !important;
 }
 
-/* --- OTROS ESTILOS --- */
+/* --- OTROS ESTILOS COMPLEMENTARIOS --- */
+.input-pro {
+    background: #f1f5f9; 
+    border: 2px solid transparent; 
+    border-radius: 16px;
+    padding: 14px 18px; 
+    font-weight: 600; 
+    width: 100%;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.dark .input-pro { background: #1e293b; color: white; }
+.input-pro:focus { border-color: #3b82f6; background: white; }
+
+.private-mode .tabular-nums, 
+.private-mode .chart-container {
+    filter: blur(12px);
+    pointer-events: none;
+}
+
 .ai-panel {
     position: fixed; top: 0; right: -100%; width: 100%; max-width: 450px; height: 100%;
     background: white; z-index: 100; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: -10px 0 30px rgba(0,0,0,0.1); padding: 24px; overflow-y: auto;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.1); padding: 24px;
 }
 .dark .ai-panel { background: #0f172a; border-left: 1px solid #1e293b; }
 .ai-panel.open { right: 0; }
-
-.progress-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
-.dark .progress-bar { background: #1e293b; }
-.progress-fill { height: 100%; background: #3b82f6; transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
-
-/* Ocultar scrollbars */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-@media (max-width: 640px) {
-    h1 { font-size: 1.8rem !important; }
-    #total-neto { font-size: 2.2rem !important; }
-}

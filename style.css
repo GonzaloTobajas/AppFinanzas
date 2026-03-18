@@ -157,3 +157,25 @@ body {
     h1 { font-size: 1.8rem !important; }
     #total-neto { font-size: 1.8rem !important; }
 }
+
+/* Botones en cuadrícula para que se vean todos a la vez */
+.tab-btn-grid {
+    @apply flex items-center justify-center py-2 px-1 text-[10px] font-black uppercase tracking-tighter rounded-xl transition-all duration-200;
+    background: transparent;
+    color: #94a3b8; /* slate-400 */
+}
+
+.tab-btn-grid.active {
+    @apply bg-white dark:bg-slate-700 shadow-sm;
+    color: #3b82f6; /* blue-500 */
+}
+
+/* En móviles, forzamos 3 columnas para que quepan las 6 opciones en 2 filas */
+@media (max-width: 640px) {
+    .grid-cols-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .tab-btn-grid {
+        font-size: 9px; /* Un pelín más pequeño para que no se amontone el texto */
+    }
+}

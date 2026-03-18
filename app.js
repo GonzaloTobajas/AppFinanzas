@@ -13,9 +13,10 @@ let myChart = null;
 function setTab(t) {
     state.tab = t;
     
-    // 1. Actualizar estilos de botones
-    document.querySelectorAll('.tab-btn-scroller').forEach(b => b.classList.remove('active'));
+    // 1. Actualizar estilos de botones (Usando la clase correcta .tab-btn-grid)
+    document.querySelectorAll('.tab-btn-grid').forEach(b => b.classList.remove('active'));
     
+    // IDs CORREGIDOS para coincidir exactamente con tu index.html
     const tabIds = {
         'banco': 'tab-banco',
         'fondos': 'tab-fon',
@@ -63,7 +64,7 @@ function renderList() {
     const cont = document.getElementById('list-container');
     if (!cont) return;
     cont.innerHTML = `
-        <div class="p-10 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+        <div class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
             <p class="text-slate-400 font-bold uppercase text-[10px] tracking-widest italic">No hay registros en ${state.tab}</p>
         </div>
     `;
@@ -105,5 +106,6 @@ function initChart() {
 
 // Inicialización
 window.onload = () => {
+    if(state.isPrivate) document.body.classList.add('private-mode');
     setTab(state.tab);
 };

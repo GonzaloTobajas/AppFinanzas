@@ -5,6 +5,7 @@ body {
     background-color: #f8fafc; 
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
+    /* Margen superior dinámico para el Notch/Reloj */
     padding-top: calc(env(safe-area-inset-top) + 1rem) !important;
 }
 
@@ -20,56 +21,76 @@ body {
 
 .dark .bento-card { background: #0f172a; border: 1px solid #1e293b; }
 
-/* --- CONTENEDOR DE PESTAÑAS (FILA ÚNICA DE 3 CON SCROLL) --- */
+/* --- CONTENEDOR DE PESTAÑAS (ESTILO SELECTOR AZUL) --- */
 .grid-tabs {
-    display: flex !important; /* Usamos flex para permitir el desbordamiento lateral */
-    overflow-x: auto !important; /* Scroll horizontal */
-    gap: 6px !important;
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 4px !important; 
     width: 100% !important;
-    scrollbar-width: none; /* Oculta scroll en Firefox */
-    -ms-overflow-style: none; /* Oculta scroll en IE/Edge */
-    scroll-snap-type: x mandatory; /* Hace que las pestañas "encajen" al deslizar */
-    padding: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x mandatory;
+    padding: 6px !important; 
+    background: #f1f5f9 !important; /* Fondo gris suave del contenedor */
+    border-radius: 20px !important;
     -webkit-overflow-scrolling: touch;
 }
 
+.dark .grid-tabs {
+    background: rgba(30, 41, 59, 0.5) !important;
+}
+
 .grid-tabs::-webkit-scrollbar {
-    display: none; /* Oculta scroll en Chrome/Safari */
+    display: none;
 }
 
 .tab-btn-grid {
-    /* CLAVE: Cada botón ocupa exactamente 1/3 del contenedor (menos el gap) */
-    flex: 0 0 calc(33.33% - 4px); 
-    scroll-snap-align: start; /* Punto de anclaje para el scroll */
+    flex: 0 0 calc(33.33% - 6px); 
+    scroll-snap-align: start;
     display: flex !important;
     align-items: center;
     justify-content: center;
-    padding: 12px 2px !important;
+    padding: 10px 4px !important;
     font-size: 10px !important; 
-    font-weight: 900 !important;
+    font-weight: 800 !important;
     text-transform: uppercase;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.02em;
     border-radius: 14px;
-    transition: all 0.2s ease;
-    background: transparent;
-    color: #94a3b8;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: transparent; /* Solo el seleccionado tendrá fondo */
+    color: #64748b; /* Color neutro para los no seleccionados */
     border: none;
     cursor: pointer;
     white-space: nowrap;
 }
 
+/* PC: Se muestran todos equitativamente */
+@media (min-width: 1024px) {
+    .grid-tabs {
+        overflow-x: hidden !important;
+        scroll-snap-type: none;
+    }
+    .tab-btn-grid {
+        flex: 1 1 0% !important;
+        font-size: 11px !important;
+    }
+}
+
+/* --- ESTILO DEL BOTÓN SELECCIONADO (AZUL) --- */
 .tab-btn-grid.active {
-    background-color: white !important;
-    color: #3b82f6 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    background-color: #3b82f6 !important; /* Fondo azul brillante */
+    color: white !important; /* Texto blanco para contraste */
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); /* Sombra azulada */
+    transform: scale(1.02);
 }
 
 .dark .tab-btn-grid.active {
-    background-color: #1e293b !important;
-    color: #60a5fa !important;
+    background-color: #3b82f6 !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
-/* --- OTROS ESTILOS COMPLEMENTARIOS --- */
+/* --- OTROS ESTILOS --- */
 .input-pro {
     background: #f1f5f9; 
     border: 2px solid transparent; 
@@ -96,4 +117,5 @@ body {
     box-shadow: -10px 0 30px rgba(0,0,0,0.1); padding: 24px;
 }
 .dark .ai-panel { background: #0f172a; border-left: 1px solid #1e293b; }
+.ai-panel.open { right: 0; }
 .ai-panel.open { right: 0; }

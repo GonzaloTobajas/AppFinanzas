@@ -32,6 +32,7 @@ const CRYPTO_TICKER_TO_ID = {
 let myChart = null;
 let priceRefreshTimer = null;
 let fetchingPrices = false;
+let expandedCryptoRows = {};
 let cryptoPriceState = {
     status: 'idle',
     message: 'Esperando actualizacion',
@@ -493,39 +494,66 @@ function renderCryptoList(cont) {
 
             const pnlClass = pnl >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
             const signal = pnl >= 0 ? '+' : '';
+            const expanded = !!expandedCryptoRows[c.ticker];
+            const detailId = `crypto-detail-${c.ticker}`;
 
             return `
-                <div class="p-5 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900/60 shadow-sm space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h3 class="font-black text-lg tracking-tight">${c.ticker}</h3>
-                        <p class="text-[11px] font-black uppercase tracking-widest text-slate-400">${qty.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')} ${c.ticker}</p>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 text-xs font-semibold">
-                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio medio</p>
-                            <p class="text-sm font-black mt-1">${formatMoney(avgPrice)}</p>
+                <div class="crypto-row-card">
+                    <button class="crypto-row-main" onclick="toggleCryptoDetails('${c.ticker}')" aria-expanded="${expanded}">
+                        <div class="crypto-col crypto-col-main">
+                            <p class="crypto-label">Token</p>
+                            <p class="crypto-value crypto-token">${c.ticker}</p>
                         </div>
-                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio actual</p>
-                            <p class="text-sm font-black mt-1">${hasLivePrice ? formatMoney(c.currentPrice) : 'Sin dato en vivo'}</p>
+                        <div class="crypto-col">
+                            <p class="crypto-label">Cantidad</p>
+                            <p class="crypto-value">${qty.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')}</p>
                         </div>
-                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor invertido</p>
-                            <p class="text-sm font-black mt-1">${formatMoney(buyValue)}</p>
+                        <div class="crypto-col">
+                            <p class="crypto-label">Precio actual</p>
+                            <p class="crypto-value">${hasLivePrice ? formatMoney(c.currentPrice) : 'Sin dato'}</p>
                         </div>
-                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor actual</p>
-                            <p class="text-sm font-black mt-1">${formatMoney(currentValue)}</p>
+                        <div class="crypto-col">
+                            <p class="crypto-label">P/L</p>
+                            <p class="crypto-value ${pnlClass}">${signal}${formatPercent(pnlPct)}</p>
                         </div>
-                    </div>
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                        <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Ganancia/Perdida</p>
-                        <p class="font-black ${pnlClass}">${signal}${formatMoney(pnl)} (${signal}${formatPercent(pnlPct)})</p>
+                        <div class="crypto-col crypto-col-arrow ${expanded ? 'open' : ''}">
+                            <span>▾</span>
+                        </div>
+                    </button>
+
+                    <div id="${detailId}" class="crypto-row-details ${expanded ? '' : 'hidden'}">
+                        <div class="grid grid-cols-2 gap-3 text-xs font-semibold">
+                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
+                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio medio</p>
+                                <p class="text-sm font-black mt-1">${formatMoney(avgPrice)}</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
+                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio actual</p>
+                                <p class="text-sm font-black mt-1">${hasLivePrice ? formatMoney(c.currentPrice) : 'Sin dato en vivo'}</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
+                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor invertido</p>
+                                <p class="text-sm font-black mt-1">${formatMoney(buyValue)}</p>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
+                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor actual</p>
+                                <p class="text-sm font-black mt-1">${formatMoney(currentValue)}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 mt-3">
+                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Ganancia/Perdida</p>
+                            <p class="font-black ${pnlClass}">${signal}${formatMoney(pnl)} (${signal}${formatPercent(pnlPct)})</p>
+                        </div>
                     </div>
                 </div>
             `;
         })
         .join('');
+}
+
+function toggleCryptoDetails(ticker) {
+    expandedCryptoRows[ticker] = !expandedCryptoRows[ticker];
+    if (state.tab === 'cripto') renderList();
 }
 
 function calculateTotals() {

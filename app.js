@@ -32,6 +32,11 @@ const CRYPTO_TICKER_TO_ID = {
 let myChart = null;
 let priceRefreshTimer = null;
 let fetchingPrices = false;
+let cryptoPriceState = {
+    status: 'idle',
+    message: 'Esperando actualizacion',
+    updatedAt: null
+};
 
 let state = loadState();
 
@@ -71,6 +76,18 @@ function formatMoney(value) {
 
 function formatPercent(value) {
     return `${(Number(value) || 0).toFixed(2)}%`;
+}
+
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'sin actualizar';
+    const diff = Math.max(0, Date.now() - Number(timestamp));
+    const sec = Math.floor(diff / 1000);
+    if (sec < 5) return 'ahora mismo';
+    if (sec < 60) return `hace ${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `hace ${min}m`;
+    const h = Math.floor(min / 60);
+    return `hace ${h}h`;
 }
 
 function getCryptoLiveValue(item) {
@@ -209,8 +226,9 @@ function updateFormUI() {
     const val2Input = document.getElementById('input-val2');
     const bankSelect = document.getElementById('input-bank-select');
     const addBtn = document.getElementById('btn-add');
+    const helper = document.getElementById('crypto-helper');
 
-    if (!nameInput || !val1Input || !val2Input || !bankSelect || !addBtn) return;
+    if (!nameInput || !val1Input || !val2Input || !bankSelect || !addBtn || !helper) return;
 
     bankSelect.innerHTML = state.portfolio.banco
         .map((b) => `<option value="${b.name}">${b.name}</option>`)
@@ -218,6 +236,7 @@ function updateFormUI() {
 
     bankSelect.classList.add('hidden');
     val2Input.classList.add('hidden');
+    helper.classList.add('hidden');
 
     if (category === 'cripto') {
         nameInput.placeholder = 'Ticker (ej: BTC, ETH, SOL)';
@@ -225,6 +244,7 @@ function updateFormUI() {
         val2Input.placeholder = `Precio medio de compra (${state.currency})`;
         val2Input.classList.remove('hidden');
         addBtn.textContent = 'Anadir Cripto al Portfolio';
+        helper.classList.remove('hidden');
     } else if (category === 'banco') {
         nameInput.placeholder = 'Nombre de la cuenta';
         val1Input.placeholder = `Saldo inicial (${state.currency})`;
@@ -347,12 +367,23 @@ async function refreshCryptoPrices() {
 
     const ids = getCryptoCoinIds();
     if (!ids.length) {
+        cryptoPriceState = {
+            status: 'idle',
+            message: 'Sin activos para consultar',
+            updatedAt: null
+        };
         updateTotalsAndRisk();
         if (state.tab === 'cripto') renderList();
         return;
     }
 
     fetchingPrices = true;
+    cryptoPriceState = {
+        status: 'loading',
+        message: 'Actualizando precios en vivo',
+        updatedAt: cryptoPriceState.updatedAt
+    };
+    if (state.tab === 'cripto') renderList();
     const vs = state.currency.toLowerCase();
 
     try {
@@ -373,12 +404,24 @@ async function refreshCryptoPrices() {
             };
         });
 
+        cryptoPriceState = {
+            status: 'live',
+            message: 'Precios en tiempo real activos',
+            updatedAt: now
+        };
+
         save();
         updateTotalsAndRisk();
         if (state.tab === 'cripto') renderList();
         if (state.tab === 'analisis') initChart();
     } catch (err) {
         console.error(err);
+        cryptoPriceState = {
+            status: 'error',
+            message: 'Error al actualizar, reintentando',
+            updatedAt: cryptoPriceState.updatedAt
+        };
+        if (state.tab === 'cripto') renderList();
     } finally {
         fetchingPrices = false;
     }
@@ -429,13 +472,26 @@ function renderCryptoList(cont) {
         return;
     }
 
-    cont.innerHTML = cryptos
+    const statusClass = cryptoPriceState.status === 'live'
+        ? 'live'
+        : cryptoPriceState.status === 'error'
+            ? 'error'
+            : 'loading';
+
+    const statusHtml = `
+        <div class="crypto-status-banner">
+            <span class="crypto-status-pill ${statusClass}">${cryptoPriceState.message}</span>
+            <span class="crypto-status-time">Actualizado ${formatTimeAgo(cryptoPriceState.updatedAt)}</span>
+        </div>
+    `;
+
+    cont.innerHTML = statusHtml + cryptos
         .map((c) => {
             const qty = Number(c.quantity) || 0;
             const avgPrice = Number(c.avgPrice) || 0;
             const { buyValue, currentValue, pnl, pnlPct, hasLivePrice } = getCryptoLiveValue(c);
 
-            const pnlClass = pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
+            const pnlClass = pnl >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
             const signal = pnl >= 0 ? '+' : '';
 
             return `

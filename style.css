@@ -105,6 +105,84 @@ body {
 .dark .input-pro { background: #1e293b; color: white; }
 .input-pro:focus { border-color: #3b82f6; background: white; }
 
+.crypto-helper {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.crypto-helper.hidden {
+    display: none;
+}
+
+.dark .crypto-helper {
+    color: #cbd5e1;
+    background: rgba(30, 64, 175, 0.18);
+    border-color: rgba(59, 130, 246, 0.45);
+}
+
+.crypto-status-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+
+.dark .crypto-status-banner {
+    border-color: #334155;
+    background: rgba(15, 23, 42, 0.7);
+}
+
+.crypto-status-pill {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 900;
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.crypto-status-pill.live {
+    color: #065f46;
+    background: #d1fae5;
+}
+
+.crypto-status-pill.loading {
+    color: #1d4ed8;
+    background: #dbeafe;
+}
+
+.crypto-status-pill.error {
+    color: #9f1239;
+    background: #ffe4e6;
+}
+
+.crypto-status-time {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.dark .crypto-status-time {
+    color: #94a3b8;
+}
+
+.crypto-pnl-positive {
+    color: #059669;
+}
+
+.crypto-pnl-negative {
+    color: #e11d48;
+}
+
 .private-mode .tabular-nums, 
 .private-mode .chart-container {
     filter: blur(12px);

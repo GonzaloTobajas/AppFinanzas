@@ -1,6 +1,6 @@
 {
-  "name": "Mis Finanzas Pro",
-  "short_name": "Finanzas",
+  "name": "Cashy",
+  "short_name": "Cashy",
   "description": "Control de gastos, cripto y bolsa",
   "start_url": "./index.html",
   "display": "standalone",
@@ -8,7 +8,7 @@
   "theme_color": "#3b82f6",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/5511/5511413.png",
+      "src": "./logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

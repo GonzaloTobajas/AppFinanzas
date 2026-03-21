@@ -1,9 +1,10 @@
-const CACHE_NAME = 'finanzas-v1';
+const CACHE_NAME = 'cashy-v2';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './logo.png',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js'
 ];

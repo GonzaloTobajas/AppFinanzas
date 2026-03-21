@@ -250,6 +250,22 @@ body {
 .crypto-token {
     font-size: 17px;
     font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.crypto-token-logo {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.25);
+}
+
+.crypto-token-emoji {
+    font-size: 18px;
+    line-height: 1;
 }
 
 .crypto-col-arrow {

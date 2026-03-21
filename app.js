@@ -29,6 +29,21 @@ const CRYPTO_TICKER_TO_ID = {
     MATIC: 'matic-network'
 };
 
+const CRYPTO_TICKER_TO_ICON = {
+    BTC: '₿',
+    ETH: 'Ξ',
+    SOL: '☀️',
+    ADA: '₳',
+    DOT: '●',
+    XRP: '✕',
+    BNB: '🔶',
+    DOGE: '🐕',
+    AVAX: '⛰️',
+    LINK: '🔗',
+    LTC: 'Ł',
+    MATIC: '🟣'
+};
+
 let myChart = null;
 let priceRefreshTimer = null;
 let fetchingPrices = false;
@@ -445,6 +460,7 @@ function addItem() {
                 quantity: val1,
                 avgPrice: val2,
                 currentPrice: null,
+                logoUrl: null,
                 updatedAt: null
             });
         }
@@ -531,19 +547,25 @@ async function refreshCryptoPrices() {
     const vs = state.currency.toLowerCase();
 
     try {
-        const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=${vs}`;
+        const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${vs}&ids=${ids.join(',')}&sparkline=false`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('No se pudo obtener el precio en vivo.');
 
-        const prices = await response.json();
+        const markets = await response.json();
+        const marketById = markets.reduce((acc, market) => {
+            acc[market.id] = market;
+            return acc;
+        }, {});
         const now = Date.now();
 
         state.portfolio.cripto = state.portfolio.cripto.map((item) => {
             const id = CRYPTO_TICKER_TO_ID[(item.ticker || '').toUpperCase()];
-            const livePrice = id && prices[id] ? Number(prices[id][vs]) : Number(item.currentPrice);
+            const market = id ? marketById[id] : null;
+            const livePrice = market ? Number(market.current_price) : Number(item.currentPrice);
             return {
                 ...item,
                 currentPrice: Number.isFinite(livePrice) ? livePrice : null,
+                logoUrl: market && market.image ? market.image : (item.logoUrl || null),
                 updatedAt: now
             };
         });
@@ -717,12 +739,16 @@ function renderCryptoList(cont) {
             const expanded = !!expandedCryptoRows[c.ticker];
             const detailId = `crypto-detail-${c.ticker}`;
 
+            const icon = CRYPTO_TICKER_TO_ICON[c.ticker] || '💰';
+            const tokenVisual = c.logoUrl
+                ? `<img src="${c.logoUrl}" alt="Logo ${c.ticker}" class="crypto-token-logo" loading="lazy" referrerpolicy="no-referrer">`
+                : `<span class="crypto-token-emoji">${icon}</span>`;
             return `
                 <div class="crypto-row-card">
                     <button class="crypto-row-main" onclick="toggleCryptoDetails('${c.ticker}')" aria-expanded="${expanded}">
                         <div class="crypto-col crypto-col-main">
                             <p class="crypto-label">Token</p>
-                            <p class="crypto-value crypto-token">${c.ticker}</p>
+                            <p class="crypto-value crypto-token">${tokenVisual} ${c.ticker}</p>
                         </div>
                         <div class="crypto-col">
                             <p class="crypto-label">Cantidad</p>
@@ -744,24 +770,24 @@ function renderCryptoList(cont) {
                     <div id="${detailId}" class="crypto-row-details ${expanded ? '' : 'hidden'}">
                         <div class="grid grid-cols-2 gap-3 text-xs font-semibold">
                             <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio medio</p>
+                                    <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">${icon} Precio medio</p>
                                 <p class="text-sm font-black mt-1">${formatMoney(avgPrice)}</p>
                             </div>
                             <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio actual</p>
+                                    <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">${icon} Precio actual</p>
                                 <p class="text-sm font-black mt-1">${hasLivePrice ? formatMoney(c.currentPrice) : 'Sin dato en vivo'}</p>
                             </div>
                             <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor invertido</p>
+                                    <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">${icon} Valor invertido</p>
                                 <p class="text-sm font-black mt-1">${formatMoney(buyValue)}</p>
                             </div>
                             <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor actual</p>
+                                    <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">${icon} Valor actual</p>
                                 <p class="text-sm font-black mt-1">${formatMoney(currentValue)}</p>
                             </div>
                         </div>
                         <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 mt-3">
-                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Ganancia/Perdida</p>
+                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">${icon} Ganancia/Perdida</p>
                             <p class="font-black ${pnlClass}">${signal}${formatMoney(pnl)} (${signal}${formatPercent(pnlPct)})</p>
                         </div>
                     </div>
@@ -813,7 +839,7 @@ function updateTotalsAndRisk() {
 
     setWidth('bar-b', pBanco);
     setWidth('bar-i', pInv);
-    setWidth('bar-c', pFond);
+                                <p class="crypto-value crypto-token">${icon} ${c.ticker}</p>
     setWidth('bar-t', pCrip);
 
     setText('p-b', pBanco);
@@ -836,7 +862,7 @@ function buildChartSeries() {
     const start = Math.max(0, totals.total * 0.93);
     const step = (totals.total - start) / 6;
     for (let i = 0; i < 7; i += 1) values.push(start + step * i);
-
+                                    <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">${icon} Precio medio</p>
     return { labels, values };
 }
 

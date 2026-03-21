@@ -308,3 +308,36 @@ body {
 .dark .ai-panel { background: #0f172a; border-left: 1px solid #1e293b; }
 .ai-panel.open { right: 0; }
 .ai-panel.open { right: 0; }
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.modal-overlay.open {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 450px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.dark .modal-content {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+}

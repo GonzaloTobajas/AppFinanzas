@@ -33,6 +33,8 @@ let myChart = null;
 let priceRefreshTimer = null;
 let fetchingPrices = false;
 let expandedCryptoRows = {};
+let editingBank = null;
+let editingFond = null;
 let cryptoPriceState = {
     status: 'idle',
     message: 'Esperando actualizacion',
@@ -169,6 +171,147 @@ function toggleGoals() {
     const panel = document.getElementById('goals-hub');
     if (!panel) return;
     panel.classList.toggle('open');
+}
+
+function openBankEditor(bankName) {
+    const bank = state.portfolio.banco.find(b => b.name === bankName);
+    if (!bank) return;
+
+    editingBank = bankName;
+
+    const nameInput = document.getElementById('edit-bank-name');
+    const balanceInput = document.getElementById('edit-bank-balance');
+    const monthlyInput = document.getElementById('edit-bank-monthly');
+    const modal = document.getElementById('bank-editor-modal');
+
+    if (!nameInput || !balanceInput || !monthlyInput || !modal) return;
+
+    nameInput.value = bank.name || '';
+    balanceInput.value = bank.balance || 0;
+    monthlyInput.value = bank.monthlyDeposit || 0;
+
+    modal.classList.add('open');
+}
+
+function closeBankEditor() {
+    const modal = document.getElementById('bank-editor-modal');
+    if (modal) modal.classList.remove('open');
+    editingBank = null;
+}
+
+function saveBankEdit() {
+    const nameInput = document.getElementById('edit-bank-name');
+    const balanceInput = document.getElementById('edit-bank-balance');
+    const monthlyInput = document.getElementById('edit-bank-monthly');
+
+    if (!nameInput || !balanceInput || !monthlyInput || !editingBank) return;
+
+    const newName = nameInput.value.trim();
+    const newBalance = Number(balanceInput.value);
+    const newMonthly = Number(monthlyInput.value);
+
+    if (!newName || newBalance < 0 || newMonthly < 0) {
+        alert('Datos invalidos.');
+        return;
+    }
+
+    const bank = state.portfolio.banco.find(b => b.name === editingBank);
+    if (bank) {
+        bank.name = newName;
+        bank.balance = newBalance;
+        bank.monthlyDeposit = newMonthly;
+    }
+
+    save();
+    updateTotalsAndRisk();
+    renderGoals();
+    if (state.tab === 'banco') renderList();
+    updateFormUI();
+    closeBankEditor();
+}
+
+function deleteBankAccount(bankName) {
+    if (!confirm(`Estas seguro de que quieres eliminar la cuenta "${bankName}"?`)) return;
+
+    state.portfolio.banco = state.portfolio.banco.filter(b => b.name !== bankName);
+
+    save();
+    updateTotalsAndRisk();
+    renderGoals();
+    if (state.tab === 'banco') renderList();
+    updateFormUI();
+}
+
+function openFondoEditor(fondoName) {
+    const fondo = state.portfolio.fondos.find(f => f.name === fondoName);
+    if (!fondo) return;
+
+    editingFond = fondoName;
+
+    const nameInput = document.getElementById('edit-fondo-name');
+    const quantityInput = document.getElementById('edit-fondo-quantity');
+    const priceInput = document.getElementById('edit-fondo-price');
+    const monthlyInput = document.getElementById('edit-fondo-monthly');
+    const modal = document.getElementById('fondo-editor-modal');
+
+    if (!nameInput || !quantityInput || !priceInput || !monthlyInput || !modal) return;
+
+    nameInput.value = fondo.name || '';
+    quantityInput.value = fondo.quantity || 0;
+    priceInput.value = fondo.price || 0;
+    monthlyInput.value = fondo.monthlyDeposit || 0;
+
+    modal.classList.add('open');
+}
+
+function closeFondoEditor() {
+    const modal = document.getElementById('fondo-editor-modal');
+    if (modal) modal.classList.remove('open');
+    editingFond = null;
+}
+
+function saveFondoEdit() {
+    const nameInput = document.getElementById('edit-fondo-name');
+    const quantityInput = document.getElementById('edit-fondo-quantity');
+    const priceInput = document.getElementById('edit-fondo-price');
+    const monthlyInput = document.getElementById('edit-fondo-monthly');
+
+    if (!nameInput || !quantityInput || !priceInput || !monthlyInput || !editingFond) return;
+
+    const newName = nameInput.value.trim();
+    const newQuantity = Number(quantityInput.value);
+    const newPrice = Number(priceInput.value);
+    const newMonthly = Number(monthlyInput.value);
+
+    if (!newName || newQuantity <= 0 || newPrice <= 0 || newMonthly < 0) {
+        alert('Datos invalidos.');
+        return;
+    }
+
+    const fondo = state.portfolio.fondos.find(f => f.name === editingFond);
+    if (fondo) {
+        fondo.name = newName;
+        fondo.quantity = newQuantity;
+        fondo.price = newPrice;
+        fondo.monthlyDeposit = newMonthly;
+    }
+
+    save();
+    updateTotalsAndRisk();
+    renderGoals();
+    if (state.tab === 'fondos') renderList();
+    closeFondoEditor();
+}
+
+function deleteFondo(fondoName) {
+    if (!confirm(`Estas seguro de que quieres eliminar el fondo "${fondoName}"?`)) return;
+
+    state.portfolio.fondos = state.portfolio.fondos.filter(f => f.name !== fondoName);
+
+    save();
+    updateTotalsAndRisk();
+    renderGoals();
+    if (state.tab === 'fondos') renderList();
 }
 
 function addGoal() {
@@ -442,6 +585,16 @@ function renderList() {
         return;
     }
 
+    if (state.tab === 'banco') {
+        renderBancoList(cont);
+        return;
+    }
+
+    if (state.tab === 'fondos') {
+        renderFondosList(cont);
+        return;
+    }
+
     const records = state.portfolio[state.tab] || [];
     if (!records.length) {
         cont.innerHTML = `
@@ -458,6 +611,73 @@ function renderList() {
                 <p class="font-black text-sm uppercase">${item.name || item.ticker || 'Registro'}</p>
             </div>
         `)
+        .join('');
+}
+
+function renderBancoList(cont) {
+    const bancos = state.portfolio.banco;
+    if (!bancos.length) {
+        cont.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                <p class="text-slate-400 font-bold uppercase text-[10px] tracking-widest italic">No hay cuentas bancarias</p>
+            </div>
+        `;
+        return;
+    }
+
+    cont.innerHTML = bancos
+        .map((banco) => {
+            const monthly = Number(banco.monthlyDeposit) || 0;
+            return `
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-black text-sm uppercase">${banco.name}</p>
+                            <p class="text-xs text-slate-500 mt-1">Saldo: ${formatMoney(banco.balance)}</p>
+                            ${monthly > 0 ? `<p class="text-xs text-blue-500 font-bold mt-1">Aportacion mensual: ${formatMoney(monthly)}</p>` : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openBankEditor('${banco.name}')" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg">✏️</button>
+                            <button onclick="deleteBankAccount('${banco.name}')" class="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+function renderFondosList(cont) {
+    const fondos = state.portfolio.fondos;
+    if (!fondos.length) {
+        cont.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                <p class="text-slate-400 font-bold uppercase text-[10px] tracking-widest italic">No hay fondos indexados</p>
+            </div>
+        `;
+        return;
+    }
+
+    cont.innerHTML = fondos
+        .map((fondo) => {
+            const monthly = Number(fondo.monthlyDeposit) || 0;
+            const valor = (Number(fondo.quantity) || 0) * (Number(fondo.price) || 0);
+            return `
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-black text-sm uppercase">${fondo.name}</p>
+                            <p class="text-xs text-slate-500 mt-1">Cantidad: ${Number(fondo.quantity).toFixed(4)} | Precio: ${formatMoney(fondo.price)} | Total: ${formatMoney(valor)}</p>
+                            ${monthly > 0 ? `<p class="text-xs text-blue-500 font-bold mt-1">Aportacion mensual: ${formatMoney(monthly)}</p>` : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openFondoEditor('${fondo.name}')" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg">✏️</button>
+                            <button onclick="deleteFondo('${fondo.name}')" class="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
         .join('');
 }
 

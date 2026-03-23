@@ -273,6 +273,109 @@ body {
     border-top-color: #334155;
 }
 
+.crypto-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.crypto-stat-card {
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: linear-gradient(145deg, #f8fafc, #eef2ff);
+}
+
+.dark .crypto-stat-card {
+    border-color: #334155;
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85));
+}
+
+.crypto-stat-label {
+    color: #64748b;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    font-weight: 900;
+}
+
+.crypto-stat-value {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 900;
+    color: #0f172a;
+}
+
+.dark .crypto-stat-value {
+    color: #e2e8f0;
+}
+
+.crypto-pnl-panel {
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.dark .crypto-pnl-panel {
+    border-color: #334155;
+    background: rgba(15, 23, 42, 0.7);
+}
+
+.crypto-pnl-meter {
+    margin-top: 8px;
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.dark .crypto-pnl-meter {
+    background: #334155;
+}
+
+.crypto-pnl-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.crypto-pnl-fill.is-up {
+    background: linear-gradient(90deg, #34d399, #10b981);
+}
+
+.crypto-pnl-fill.is-down {
+    background: linear-gradient(90deg, #fb7185, #e11d48);
+}
+
+.crypto-actions-row {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.crypto-action-btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-weight: 900;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+}
+
+.crypto-action-btn.edit {
+    background: #2563eb;
+    color: #fff;
+}
+
+.crypto-action-btn.danger {
+    background: #e11d48;
+    color: #fff;
+}
+
 @media (max-width: 760px) {
     .crypto-row-main {
         grid-template-columns: 1.1fr 1fr 1fr 0.9fr 24px;

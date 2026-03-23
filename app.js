@@ -35,6 +35,7 @@ let fetchingPrices = false;
 let expandedCryptoRows = {};
 let editingBank = null;
 let editingFond = null;
+let editingToken = null;
 let cryptoPriceState = {
     status: 'idle',
     message: 'Esperando actualizacion',
@@ -312,6 +313,133 @@ function deleteFondo(fondoName) {
     updateTotalsAndRisk();
     renderGoals();
     if (state.tab === 'fondos') renderList();
+}
+
+function openTokenEditor(ticker) {
+    const token = state.portfolio.cripto.find((c) => c.ticker === ticker);
+    if (!token) return;
+
+    editingToken = ticker;
+
+    const tickerInput = document.getElementById('edit-token-ticker');
+    const quantityInput = document.getElementById('edit-token-quantity');
+    const avgInput = document.getElementById('edit-token-avg');
+    const sellQtyInput = document.getElementById('sell-token-qty');
+    const sellPriceInput = document.getElementById('sell-token-price');
+    const modal = document.getElementById('token-editor-modal');
+
+    if (!tickerInput || !quantityInput || !avgInput || !sellQtyInput || !sellPriceInput || !modal) return;
+
+    tickerInput.value = token.ticker;
+    quantityInput.value = token.quantity || 0;
+    avgInput.value = token.avgPrice || 0;
+    sellQtyInput.value = '';
+    sellPriceInput.value = token.currentPrice || token.avgPrice || 0;
+
+    modal.classList.add('open');
+}
+
+function closeTokenEditor() {
+    const modal = document.getElementById('token-editor-modal');
+    if (modal) modal.classList.remove('open');
+    editingToken = null;
+}
+
+function saveTokenEdit() {
+    if (!editingToken) return;
+
+    const quantityInput = document.getElementById('edit-token-quantity');
+    const avgInput = document.getElementById('edit-token-avg');
+    if (!quantityInput || !avgInput) return;
+
+    const newQty = Number(quantityInput.value);
+    const newAvg = Number(avgInput.value);
+
+    if (newQty <= 0 || newAvg <= 0) {
+        alert('Introduce cantidad y precio medio validos.');
+        return;
+    }
+
+    const token = state.portfolio.cripto.find((c) => c.ticker === editingToken);
+    if (!token) return;
+
+    token.quantity = newQty;
+    token.avgPrice = newAvg;
+
+    state.portfolio.movimientos.push({
+        type: 'edicion-cripto',
+        name: token.ticker,
+        quantity: newQty,
+        price: newAvg,
+        timestamp: Date.now()
+    });
+
+    save();
+    updateTotalsAndRisk();
+    renderList();
+    closeTokenEditor();
+}
+
+function sellToken() {
+    if (!editingToken) return;
+
+    const sellQtyInput = document.getElementById('sell-token-qty');
+    const sellPriceInput = document.getElementById('sell-token-price');
+    if (!sellQtyInput || !sellPriceInput) return;
+
+    const qtyToSell = Number(sellQtyInput.value);
+    const sellPrice = Number(sellPriceInput.value);
+
+    if (qtyToSell <= 0 || sellPrice <= 0) {
+        alert('Introduce cantidad y precio de venta validos.');
+        return;
+    }
+
+    const token = state.portfolio.cripto.find((c) => c.ticker === editingToken);
+    if (!token) return;
+
+    const currentQty = Number(token.quantity) || 0;
+    if (qtyToSell > currentQty) {
+        alert('No puedes vender mas de lo que tienes.');
+        return;
+    }
+
+    token.quantity = currentQty - qtyToSell;
+
+    if (token.quantity <= 0) {
+        state.portfolio.cripto = state.portfolio.cripto.filter((c) => c.ticker !== editingToken);
+        delete expandedCryptoRows[editingToken];
+    }
+
+    state.portfolio.movimientos.push({
+        type: 'venta-cripto',
+        name: editingToken,
+        quantity: qtyToSell,
+        price: sellPrice,
+        timestamp: Date.now()
+    });
+
+    save();
+    updateTotalsAndRisk();
+    renderList();
+    closeTokenEditor();
+}
+
+function deleteToken(ticker) {
+    if (!confirm(`Estas seguro de que quieres eliminar ${ticker}?`)) return;
+
+    state.portfolio.cripto = state.portfolio.cripto.filter((c) => c.ticker !== ticker);
+    delete expandedCryptoRows[ticker];
+
+    state.portfolio.movimientos.push({
+        type: 'eliminar-cripto',
+        name: ticker,
+        timestamp: Date.now()
+    });
+
+    save();
+    updateTotalsAndRisk();
+    renderList();
 }
 
 function addGoal() {
@@ -716,6 +844,8 @@ function renderCryptoList(cont) {
             const signal = pnl >= 0 ? '+' : '';
             const expanded = !!expandedCryptoRows[c.ticker];
             const detailId = `crypto-detail-${c.ticker}`;
+            const pnlWidth = Math.max(0, Math.min(100, Math.abs(pnlPct)));
+            const pnlBarClass = pnl >= 0 ? 'is-up' : 'is-down';
 
             return `
                 <div class="crypto-row-card">
@@ -742,27 +872,37 @@ function renderCryptoList(cont) {
                     </button>
 
                     <div id="${detailId}" class="crypto-row-details ${expanded ? '' : 'hidden'}">
-                        <div class="grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio medio</p>
-                                <p class="text-sm font-black mt-1">${formatMoney(avgPrice)}</p>
+                        <div class="crypto-details-grid text-xs font-semibold">
+                            <div class="crypto-stat-card">
+                                <p class="crypto-stat-label">Precio medio</p>
+                                <p class="crypto-stat-value">${formatMoney(avgPrice)}</p>
                             </div>
-                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Precio actual</p>
-                                <p class="text-sm font-black mt-1">${hasLivePrice ? formatMoney(c.currentPrice) : 'Sin dato en vivo'}</p>
+                            <div class="crypto-stat-card">
+                                <p class="crypto-stat-label">Precio actual</p>
+                                <p class="crypto-stat-value">${hasLivePrice ? formatMoney(c.currentPrice) : 'Sin dato en vivo'}</p>
                             </div>
-                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor invertido</p>
-                                <p class="text-sm font-black mt-1">${formatMoney(buyValue)}</p>
+                            <div class="crypto-stat-card">
+                                <p class="crypto-stat-label">Valor invertido</p>
+                                <p class="crypto-stat-value">${formatMoney(buyValue)}</p>
                             </div>
-                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70">
-                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Valor actual</p>
-                                <p class="text-sm font-black mt-1">${formatMoney(currentValue)}</p>
+                            <div class="crypto-stat-card">
+                                <p class="crypto-stat-label">Valor actual</p>
+                                <p class="crypto-stat-value">${formatMoney(currentValue)}</p>
                             </div>
                         </div>
-                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 mt-3">
-                            <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Ganancia/Perdida</p>
-                            <p class="font-black ${pnlClass}">${signal}${formatMoney(pnl)} (${signal}${formatPercent(pnlPct)})</p>
+                        <div class="crypto-pnl-panel mt-3">
+                            <div class="flex items-center justify-between">
+                                <p class="text-slate-400 uppercase text-[10px] font-black tracking-widest">Ganancia/Perdida</p>
+                                <p class="font-black ${pnlClass}">${signal}${formatMoney(pnl)} (${signal}${formatPercent(pnlPct)})</p>
+                            </div>
+                            <div class="crypto-pnl-meter">
+                                <div class="crypto-pnl-fill ${pnlBarClass}" style="width:${pnlWidth}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="crypto-actions-row">
+                            <button onclick="openTokenEditor('${c.ticker}')" class="crypto-action-btn edit">Editar / Vender</button>
+                            <button onclick="deleteToken('${c.ticker}')" class="crypto-action-btn danger">Eliminar</button>
                         </div>
                     </div>
                 </div>

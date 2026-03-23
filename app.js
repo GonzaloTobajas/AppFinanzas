@@ -125,14 +125,19 @@ function getFundLiveValue(item) {
     const buyPrice = Number(item.price) || 0;
     const current = Number(item.currentPrice);
     const buyValue = qty * buyPrice;
-    const currentValue = Number.isFinite(current) ? qty * current : buyValue;
+    const hasLivePrice = Number.isFinite(current) && current > 0;
+    const currentValue = hasLivePrice ? qty * current : buyValue;
     const pnl = currentValue - buyValue;
     const pnlPct = buyValue > 0 ? (pnl / buyValue) * 100 : 0;
-    return { buyValue, currentValue, pnl, pnlPct, hasLivePrice: Number.isFinite(current) };
+    return { buyValue, currentValue, pnl, pnlPct, hasLivePrice };
 }
 
 function normalizeFundSymbol(symbol) {
-    return String(symbol || '').trim().toUpperCase();
+    const cleaned = String(symbol || '')
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '');
+    return looksLikeFundSymbol(cleaned) ? cleaned : '';
 }
 
 function parseFundInput(rawValue) {
@@ -166,7 +171,7 @@ async function resolveFundSymbolByName(name) {
 
     if (looksLikeFundSymbol(normalized)) return normalizeFundSymbol(normalized);
 
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(normalized)}&quotesCount=8&newsCount=0`;
+    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(normalized)}&quotesCount=8&newsCount=0`)}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('No se pudo resolver el fondo por nombre.');
 
@@ -181,7 +186,12 @@ async function resolveFundSymbolByName(name) {
 }
 
 async function ensureFundSymbols() {
-    const unresolved = state.portfolio.fondos.filter((f) => !normalizeFundSymbol(f.symbol));
+    state.portfolio.fondos = state.portfolio.fondos.map((fondo) => ({
+        ...fondo,
+        symbol: normalizeFundSymbol(fondo.symbol)
+    }));
+
+    const unresolved = state.portfolio.fondos.filter((f) => !f.symbol);
     if (!unresolved.length) return;
 
     await Promise.all(unresolved.map(async (fondo) => {
@@ -376,11 +386,17 @@ function saveFondoEdit() {
     const newName = nameInput.value.trim();
     const newQuantity = Number(quantityInput.value);
     const newPrice = Number(priceInput.value);
-    const newSymbol = normalizeFundSymbol(symbolInput.value);
+    const rawSymbol = String(symbolInput.value || '').trim();
+    const newSymbol = normalizeFundSymbol(rawSymbol);
     const newMonthly = Number(monthlyInput.value);
 
     if (!newName || newQuantity <= 0 || newPrice <= 0 || newMonthly < 0) {
         alert('Datos invalidos.');
+        return;
+    }
+
+    if (rawSymbol && !newSymbol) {
+        alert('El ID/ticker no es valido. Ejemplos: VWCE.DE, IWDA.AS, SPY, QQQ');
         return;
     }
 
@@ -867,7 +883,8 @@ async function refreshFundPrices() {
             return;
         }
 
-        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(quoteUrl)}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('No se pudieron obtener cotizaciones de fondos.');
 
@@ -888,7 +905,7 @@ async function refreshFundPrices() {
 
             return {
                 ...item,
-                currentPrice: Number.isFinite(livePrice) ? livePrice : item.currentPrice,
+                currentPrice: Number.isFinite(livePrice) && livePrice > 0 ? livePrice : item.currentPrice,
                 dayChangePct: Number.isFinite(changePct) ? changePct : item.dayChangePct,
                 updatedAt: now
             };
@@ -899,6 +916,15 @@ async function refreshFundPrices() {
             message: 'Fondos conectados en vivo',
             updatedAt: now
         };
+
+        const stillUnresolved = state.portfolio.fondos.filter((f) => !f.symbol).length;
+        if (stillUnresolved > 0) {
+            fundPriceState = {
+                status: 'error',
+                message: `${stillUnresolved} fondo(s) sin ID valido`,
+                updatedAt: now
+            };
+        }
 
         save();
         updateTotalsAndRisk();
@@ -1026,7 +1052,8 @@ function renderFondosList(cont) {
             const qty = Number(fondo.quantity) || 0;
             const dayChange = Number(fondo.dayChangePct);
             const daySignal = Number.isFinite(dayChange) && dayChange >= 0 ? '+' : '';
-            const dayClass = Number.isFinite(dayChange) && dayChange >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
+            const hasDayChange = Number.isFinite(dayChange);
+            const dayClass = hasDayChange && dayChange >= 0 ? 'crypto-pnl-positive' : hasDayChange ? 'crypto-pnl-negative' : 'text-slate-400';
             const { buyValue, currentValue, pnl, pnlPct, hasLivePrice } = getFundLiveValue(fondo);
             const pnlSignal = pnl >= 0 ? '+' : '';
             const pnlClass = pnl >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
@@ -1038,7 +1065,7 @@ function renderFondosList(cont) {
                             <p class="text-xs text-slate-500 mt-1">Cantidad: ${qty.toFixed(4)} | Compra: ${formatMoney(fondo.price)} | ID: ${fondo.symbol || 'Sin ID'}</p>
                             <p class="text-xs text-slate-500 mt-1">Actual: ${hasLivePrice ? formatMoney(fondo.currentPrice) : 'Sin dato'} | Valor: ${formatMoney(currentValue)}</p>
                             <p class="text-xs font-bold mt-1 ${pnlClass}">P/L total: ${pnlSignal}${formatMoney(pnl)} (${pnlSignal}${formatPercent(pnlPct)})</p>
-                            <p class="text-xs font-bold mt-1 ${dayClass}">Evolucion intradia: ${Number.isFinite(dayChange) ? `${daySignal}${formatPercent(dayChange)}` : 'Sin dato en vivo'}</p>
+                            <p class="text-xs font-bold mt-1 ${dayClass}">Evolucion intradia: ${hasDayChange ? `${daySignal}${formatPercent(dayChange)}` : 'Sin dato en vivo'}</p>
                             <p class="text-[10px] text-slate-400 mt-1">Invertido: ${formatMoney(buyValue)} · Actualizado ${formatTimeAgo(fondo.updatedAt)}</p>
                             ${monthly > 0 ? `<p class="text-xs text-blue-500 font-bold mt-1">Aportacion mensual: ${formatMoney(monthly)}</p>` : ''}
                         </div>

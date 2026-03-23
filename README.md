@@ -26,6 +26,12 @@ Permite registrar cuentas bancarias, fondos, inversiones y criptomonedas, y visu
 - Edicion de fondos indexados (nombre, cantidad, precio, aportacion mensual).
 - Eliminacion de cuentas y fondos.
 
+## Fondos en vivo
+
+- Puedes registrar fondos por nombre o con formato `Nombre | ID` (ejemplo: `Vanguard FTSE All-World | VWCE.DE`).
+- La app intenta resolver automaticamente el ID del fondo si solo pones el nombre.
+- Si el fondo tiene ID valido, muestra precio actual y evolucion intradia en tiempo real.
+
 ## Tecnologia
 
 - HTML + CSS + JavaScript vanilla

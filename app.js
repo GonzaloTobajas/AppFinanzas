@@ -32,6 +32,7 @@ const CRYPTO_TICKER_TO_ID = {
 let myChart = null;
 let priceRefreshTimer = null;
 let fetchingPrices = false;
+let fetchingFundPrices = false;
 let expandedCryptoRows = {};
 let editingBank = null;
 let editingFond = null;
@@ -40,6 +41,20 @@ let cryptoPriceState = {
     status: 'idle',
     message: 'Esperando actualizacion',
     updatedAt: null
+};
+let fundPriceState = {
+    status: 'idle',
+    message: 'Esperando actualizacion',
+    updatedAt: null
+};
+
+const FUND_NAME_TO_SYMBOL = {
+    'msci world': 'IWDA.AS',
+    'sp500': 'SPY',
+    's&p 500': 'SPY',
+    'vanguard ftse all world': 'VWCE.DE',
+    'all world': 'VWCE.DE',
+    'nasdaq 100': 'QQQ'
 };
 
 let state = loadState();
@@ -105,6 +120,80 @@ function getCryptoLiveValue(item) {
     return { buyValue, currentValue, pnl, pnlPct, hasLivePrice: Number.isFinite(current) };
 }
 
+function getFundLiveValue(item) {
+    const qty = Number(item.quantity) || 0;
+    const buyPrice = Number(item.price) || 0;
+    const current = Number(item.currentPrice);
+    const buyValue = qty * buyPrice;
+    const currentValue = Number.isFinite(current) ? qty * current : buyValue;
+    const pnl = currentValue - buyValue;
+    const pnlPct = buyValue > 0 ? (pnl / buyValue) * 100 : 0;
+    return { buyValue, currentValue, pnl, pnlPct, hasLivePrice: Number.isFinite(current) };
+}
+
+function normalizeFundSymbol(symbol) {
+    return String(symbol || '').trim().toUpperCase();
+}
+
+function parseFundInput(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return { name: '', symbol: '' };
+
+    const parts = raw.split('|').map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+        return {
+            name: parts[0],
+            symbol: normalizeFundSymbol(parts[1])
+        };
+    }
+
+    return {
+        name: raw,
+        symbol: ''
+    };
+}
+
+function looksLikeFundSymbol(text) {
+    return /^[A-Z0-9.\-]{2,15}$/.test(String(text || '').trim().toUpperCase());
+}
+
+async function resolveFundSymbolByName(name) {
+    const normalized = String(name || '').trim();
+    if (!normalized) return '';
+
+    const mapped = Object.entries(FUND_NAME_TO_SYMBOL).find(([key]) => normalized.toLowerCase().includes(key));
+    if (mapped) return mapped[1];
+
+    if (looksLikeFundSymbol(normalized)) return normalizeFundSymbol(normalized);
+
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(normalized)}&quotesCount=8&newsCount=0`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('No se pudo resolver el fondo por nombre.');
+
+    const data = await response.json();
+    const candidates = Array.isArray(data.quotes) ? data.quotes : [];
+    const pick = candidates.find((q) => {
+        const qt = String(q.quoteType || '').toUpperCase();
+        return ['ETF', 'MUTUALFUND', 'INDEX', 'EQUITY'].includes(qt) && q.symbol;
+    });
+
+    return pick ? normalizeFundSymbol(pick.symbol) : '';
+}
+
+async function ensureFundSymbols() {
+    const unresolved = state.portfolio.fondos.filter((f) => !normalizeFundSymbol(f.symbol));
+    if (!unresolved.length) return;
+
+    await Promise.all(unresolved.map(async (fondo) => {
+        try {
+            const resolved = await resolveFundSymbolByName(fondo.name);
+            if (resolved) fondo.symbol = resolved;
+        } catch (err) {
+            console.warn('No se pudo resolver simbolo para fondo:', fondo.name, err);
+        }
+    }));
+}
+
 function updateCurrencyButton() {
     const btn = document.getElementById('btn-currency');
     if (btn) btn.textContent = state.currency;
@@ -144,6 +233,7 @@ function setTab(t) {
     }
 
     if (t === 'cripto') refreshCryptoPrices();
+    if (t === 'fondos') refreshFundPrices();
     save();
 }
 
@@ -166,6 +256,7 @@ function toggleCurrency() {
     updateTotalsAndRisk();
     renderList();
     refreshCryptoPrices();
+    refreshFundPrices();
 }
 
 function toggleGoals() {
@@ -252,14 +343,16 @@ function openFondoEditor(fondoName) {
     const nameInput = document.getElementById('edit-fondo-name');
     const quantityInput = document.getElementById('edit-fondo-quantity');
     const priceInput = document.getElementById('edit-fondo-price');
+    const symbolInput = document.getElementById('edit-fondo-symbol');
     const monthlyInput = document.getElementById('edit-fondo-monthly');
     const modal = document.getElementById('fondo-editor-modal');
 
-    if (!nameInput || !quantityInput || !priceInput || !monthlyInput || !modal) return;
+    if (!nameInput || !quantityInput || !priceInput || !symbolInput || !monthlyInput || !modal) return;
 
     nameInput.value = fondo.name || '';
     quantityInput.value = fondo.quantity || 0;
     priceInput.value = fondo.price || 0;
+    symbolInput.value = fondo.symbol || '';
     monthlyInput.value = fondo.monthlyDeposit || 0;
 
     modal.classList.add('open');
@@ -275,13 +368,15 @@ function saveFondoEdit() {
     const nameInput = document.getElementById('edit-fondo-name');
     const quantityInput = document.getElementById('edit-fondo-quantity');
     const priceInput = document.getElementById('edit-fondo-price');
+    const symbolInput = document.getElementById('edit-fondo-symbol');
     const monthlyInput = document.getElementById('edit-fondo-monthly');
 
-    if (!nameInput || !quantityInput || !priceInput || !monthlyInput || !editingFond) return;
+    if (!nameInput || !quantityInput || !priceInput || !symbolInput || !monthlyInput || !editingFond) return;
 
     const newName = nameInput.value.trim();
     const newQuantity = Number(quantityInput.value);
     const newPrice = Number(priceInput.value);
+    const newSymbol = normalizeFundSymbol(symbolInput.value);
     const newMonthly = Number(monthlyInput.value);
 
     if (!newName || newQuantity <= 0 || newPrice <= 0 || newMonthly < 0) {
@@ -294,6 +389,12 @@ function saveFondoEdit() {
         fondo.name = newName;
         fondo.quantity = newQuantity;
         fondo.price = newPrice;
+        fondo.symbol = newSymbol;
+        if (newSymbol) {
+            fondo.currentPrice = null;
+            fondo.dayChangePct = null;
+            fondo.updatedAt = null;
+        }
         fondo.monthlyDeposit = newMonthly;
     }
 
@@ -516,6 +617,7 @@ function updateFormUI() {
         val2Input.placeholder = `Precio medio de compra (${state.currency})`;
         val2Input.classList.remove('hidden');
         addBtn.textContent = 'Anadir Cripto al Portfolio';
+        helper.textContent = 'En cripto, introduce ticker, cantidad y precio medio de compra para calcular P/L en tiempo real.';
         helper.classList.remove('hidden');
     } else if (category === 'banco') {
         nameInput.placeholder = 'Nombre de la cuenta';
@@ -527,7 +629,13 @@ function updateFormUI() {
         bankSelect.classList.remove('hidden');
         addBtn.textContent = category === 'ingreso' ? 'Registrar Ingreso' : 'Registrar Gasto';
     } else {
-        nameInput.placeholder = 'Nombre';
+        if (category === 'fondos') {
+            nameInput.placeholder = 'Nombre del fondo o Nombre | ID (ej: Vanguard | VWCE.DE)';
+            helper.textContent = 'Fondos: puedes poner ID (ticker) manual o solo nombre; se intentara conectar automaticamente para precio y evolucion en vivo.';
+            helper.classList.remove('hidden');
+        } else {
+            nameInput.placeholder = 'Nombre';
+        }
         val1Input.placeholder = 'Cantidad';
         val2Input.placeholder = `Precio (${state.currency})`;
         val2Input.classList.remove('hidden');
@@ -605,6 +713,26 @@ function addItem() {
             bank: bankSelect.value || null,
             timestamp: Date.now()
         });
+    } else if (category === 'fondos') {
+        if (!name || val1 <= 0 || val2 <= 0) {
+            alert('Completa los datos requeridos.');
+            return;
+        }
+        const parsed = parseFundInput(name);
+        if (!parsed.name) {
+            alert('Introduce nombre de fondo valido.');
+            return;
+        }
+
+        state.portfolio.fondos.push({
+            name: parsed.name,
+            symbol: normalizeFundSymbol(parsed.symbol),
+            quantity: val1,
+            price: val2,
+            currentPrice: null,
+            dayChangePct: null,
+            updatedAt: null
+        });
     } else {
         if (!name || val1 <= 0 || val2 <= 0) {
             alert('Completa los datos requeridos.');
@@ -624,6 +752,7 @@ function addItem() {
     updateFormUI();
 
     if (category === 'cripto') refreshCryptoPrices();
+    if (category === 'fondos') refreshFundPrices();
 }
 
 function getCryptoCoinIds() {
@@ -699,9 +828,101 @@ async function refreshCryptoPrices() {
     }
 }
 
+async function refreshFundPrices() {
+    if (fetchingFundPrices) return;
+    if (!state.portfolio.fondos.length) {
+        fundPriceState = {
+            status: 'idle',
+            message: 'Sin fondos para consultar',
+            updatedAt: null
+        };
+        updateTotalsAndRisk();
+        if (state.tab === 'fondos') renderList();
+        return;
+    }
+
+    fetchingFundPrices = true;
+    fundPriceState = {
+        status: 'loading',
+        message: 'Actualizando fondos en vivo',
+        updatedAt: fundPriceState.updatedAt
+    };
+    if (state.tab === 'fondos') renderList();
+
+    try {
+        await ensureFundSymbols();
+        const symbols = [...new Set(
+            state.portfolio.fondos
+                .map((f) => normalizeFundSymbol(f.symbol))
+                .filter(Boolean)
+        )];
+
+        if (!symbols.length) {
+            fundPriceState = {
+                status: 'error',
+                message: 'No se pudo resolver ID de fondos',
+                updatedAt: fundPriceState.updatedAt
+            };
+            if (state.tab === 'fondos') renderList();
+            return;
+        }
+
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('No se pudieron obtener cotizaciones de fondos.');
+
+        const data = await response.json();
+        const results = Array.isArray(data?.quoteResponse?.result) ? data.quoteResponse.result : [];
+        const bySymbol = Object.fromEntries(
+            results.map((r) => [normalizeFundSymbol(r.symbol), r])
+        );
+
+        const now = Date.now();
+        state.portfolio.fondos = state.portfolio.fondos.map((item) => {
+            const symbol = normalizeFundSymbol(item.symbol);
+            const quote = bySymbol[symbol];
+            if (!quote) return item;
+
+            const livePrice = Number(quote.regularMarketPrice);
+            const changePct = Number(quote.regularMarketChangePercent);
+
+            return {
+                ...item,
+                currentPrice: Number.isFinite(livePrice) ? livePrice : item.currentPrice,
+                dayChangePct: Number.isFinite(changePct) ? changePct : item.dayChangePct,
+                updatedAt: now
+            };
+        });
+
+        fundPriceState = {
+            status: 'live',
+            message: 'Fondos conectados en vivo',
+            updatedAt: now
+        };
+
+        save();
+        updateTotalsAndRisk();
+        if (state.tab === 'fondos') renderList();
+        if (state.tab === 'analisis') initChart();
+    } catch (err) {
+        console.error(err);
+        fundPriceState = {
+            status: 'error',
+            message: 'Error al actualizar fondos, reintentando',
+            updatedAt: fundPriceState.updatedAt
+        };
+        if (state.tab === 'fondos') renderList();
+    } finally {
+        fetchingFundPrices = false;
+    }
+}
+
 function startPriceAutoRefresh() {
     if (priceRefreshTimer) clearInterval(priceRefreshTimer);
-    priceRefreshTimer = setInterval(refreshCryptoPrices, 30000);
+    priceRefreshTimer = setInterval(() => {
+        refreshCryptoPrices();
+        refreshFundPrices();
+    }, 30000);
 }
 
 function renderList() {
@@ -786,16 +1007,39 @@ function renderFondosList(cont) {
         return;
     }
 
-    cont.innerHTML = fondos
+    const statusClass = fundPriceState.status === 'live'
+        ? 'live'
+        : fundPriceState.status === 'error'
+            ? 'error'
+            : 'loading';
+
+    const statusHtml = `
+        <div class="crypto-status-banner">
+            <span class="crypto-status-pill ${statusClass}">${fundPriceState.message}</span>
+            <span class="crypto-status-time">Actualizado ${formatTimeAgo(fundPriceState.updatedAt)}</span>
+        </div>
+    `;
+
+    cont.innerHTML = statusHtml + fondos
         .map((fondo) => {
             const monthly = Number(fondo.monthlyDeposit) || 0;
-            const valor = (Number(fondo.quantity) || 0) * (Number(fondo.price) || 0);
+            const qty = Number(fondo.quantity) || 0;
+            const dayChange = Number(fondo.dayChangePct);
+            const daySignal = Number.isFinite(dayChange) && dayChange >= 0 ? '+' : '';
+            const dayClass = Number.isFinite(dayChange) && dayChange >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
+            const { buyValue, currentValue, pnl, pnlPct, hasLivePrice } = getFundLiveValue(fondo);
+            const pnlSignal = pnl >= 0 ? '+' : '';
+            const pnlClass = pnl >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
             return `
                 <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3">
                     <div class="flex justify-between items-start">
                         <div>
                             <p class="font-black text-sm uppercase">${fondo.name}</p>
-                            <p class="text-xs text-slate-500 mt-1">Cantidad: ${Number(fondo.quantity).toFixed(4)} | Precio: ${formatMoney(fondo.price)} | Total: ${formatMoney(valor)}</p>
+                            <p class="text-xs text-slate-500 mt-1">Cantidad: ${qty.toFixed(4)} | Compra: ${formatMoney(fondo.price)} | ID: ${fondo.symbol || 'Sin ID'}</p>
+                            <p class="text-xs text-slate-500 mt-1">Actual: ${hasLivePrice ? formatMoney(fondo.currentPrice) : 'Sin dato'} | Valor: ${formatMoney(currentValue)}</p>
+                            <p class="text-xs font-bold mt-1 ${pnlClass}">P/L total: ${pnlSignal}${formatMoney(pnl)} (${pnlSignal}${formatPercent(pnlPct)})</p>
+                            <p class="text-xs font-bold mt-1 ${dayClass}">Evolucion intradia: ${Number.isFinite(dayChange) ? `${daySignal}${formatPercent(dayChange)}` : 'Sin dato en vivo'}</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Invertido: ${formatMoney(buyValue)} · Actualizado ${formatTimeAgo(fondo.updatedAt)}</p>
                             ${monthly > 0 ? `<p class="text-xs text-blue-500 font-bold mt-1">Aportacion mensual: ${formatMoney(monthly)}</p>` : ''}
                         </div>
                         <div class="flex gap-2">
@@ -919,7 +1163,7 @@ function toggleCryptoDetails(ticker) {
 function calculateTotals() {
     const banco = state.portfolio.banco.reduce((sum, item) => sum + (Number(item.balance) || 0), 0);
     const inversiones = state.portfolio.inversiones.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.price) || 0)), 0);
-    const fondos = state.portfolio.fondos.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.price) || 0)), 0);
+    const fondos = state.portfolio.fondos.reduce((sum, item) => sum + getFundLiveValue(item).currentValue, 0);
     const cripto = state.portfolio.cripto.reduce((sum, item) => sum + getCryptoLiveValue(item).currentValue, 0);
 
     return {
@@ -1052,4 +1296,5 @@ window.onload = () => {
 
     startPriceAutoRefresh();
     refreshCryptoPrices();
+    refreshFundPrices();
 };

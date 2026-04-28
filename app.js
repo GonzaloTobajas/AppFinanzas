@@ -1436,9 +1436,9 @@ function renderInversionesList(cont) {
             const pnlClass = pnl >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
 
             return `
-                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3">
-                    <div class="flex justify-between items-start">
-                        <div>
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                        <div class="min-w-0">
                             <p class="font-black text-sm uppercase">${inv.name}</p>
                             <p class="text-xs text-slate-500 mt-1">Cantidad: ${qty.toFixed(4)} | Compra: ${formatMoney(inv.price)} | Ticker: ${inv.symbol || 'Sin ticker'}</p>
                             <p class="text-xs text-slate-500 mt-1">Actual: ${hasLivePrice ? formatMoney(inv.currentPrice) : 'Sin dato'} | Valor: ${formatMoney(currentValue)}</p>
@@ -1446,9 +1446,9 @@ function renderInversionesList(cont) {
                             <p class="text-xs font-bold mt-1 ${dayClass}">Evolucion intradia: ${hasDayChange ? `${daySignal}${formatPercent(dayChange)}` : 'Sin dato en vivo'}</p>
                             <p class="text-[10px] text-slate-400 mt-1">Invertido: ${formatMoney(buyValue)} · Actualizado ${formatTimeAgo(inv.updatedAt)}</p>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="openInvestmentEditor('${inv.name}')" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg">✏️</button>
-                            <button onclick="deleteInvestment('${inv.name}')" class="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg">🗑️</button>
+                        <div class="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                            <button onclick="openInvestmentEditor('${inv.name}')" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl uppercase tracking-widest">Editar</button>
+                            <button onclick="deleteInvestment('${inv.name}')" class="w-full sm:w-auto px-4 py-2 bg-rose-600 text-white text-xs font-black rounded-xl uppercase tracking-widest">Borrar</button>
                         </div>
                     </div>
                 </div>

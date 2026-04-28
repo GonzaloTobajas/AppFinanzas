@@ -33,16 +33,23 @@ let myChart = null;
 let priceRefreshTimer = null;
 let fetchingPrices = false;
 let fetchingFundPrices = false;
+let fetchingInvestmentPrices = false;
 let expandedCryptoRows = {};
 let editingBank = null;
 let editingFond = null;
 let editingToken = null;
+let editingInvestment = null;
 let cryptoPriceState = {
     status: 'idle',
     message: 'Esperando actualizacion',
     updatedAt: null
 };
 let fundPriceState = {
+    status: 'idle',
+    message: 'Esperando actualizacion',
+    updatedAt: null
+};
+let investmentPriceState = {
     status: 'idle',
     message: 'Esperando actualizacion',
     updatedAt: null
@@ -132,6 +139,18 @@ function getFundLiveValue(item) {
     return { buyValue, currentValue, pnl, pnlPct, hasLivePrice };
 }
 
+function getInvestmentLiveValue(item) {
+    const qty = Number(item.quantity) || 0;
+    const buyPrice = Number(item.price) || 0;
+    const current = Number(item.currentPrice);
+    const buyValue = qty * buyPrice;
+    const hasLivePrice = Number.isFinite(current) && current > 0;
+    const currentValue = hasLivePrice ? qty * current : buyValue;
+    const pnl = currentValue - buyValue;
+    const pnlPct = buyValue > 0 ? (pnl / buyValue) * 100 : 0;
+    return { buyValue, currentValue, pnl, pnlPct, hasLivePrice };
+}
+
 function normalizeFundSymbol(symbol) {
     const cleaned = String(symbol || '')
         .trim()
@@ -160,6 +179,32 @@ function parseFundInput(rawValue) {
 
 function looksLikeFundSymbol(text) {
     return /^[A-Z0-9.\-]{2,15}$/.test(String(text || '').trim().toUpperCase());
+}
+
+function normalizeInvestmentSymbol(symbol) {
+    const cleaned = String(symbol || '')
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '');
+    return looksLikeFundSymbol(cleaned) ? cleaned : '';
+}
+
+function parseInvestmentInput(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return { name: '', symbol: '' };
+
+    const parts = raw.split('|').map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+        return {
+            name: parts[0],
+            symbol: normalizeInvestmentSymbol(parts[1])
+        };
+    }
+
+    return {
+        name: raw,
+        symbol: looksLikeFundSymbol(raw) ? normalizeInvestmentSymbol(raw) : ''
+    };
 }
 
 async function resolveFundSymbolByName(name) {
@@ -204,6 +249,44 @@ async function ensureFundSymbols() {
     }));
 }
 
+async function resolveInvestmentSymbolByName(name) {
+    const normalized = String(name || '').trim();
+    if (!normalized) return '';
+    if (looksLikeFundSymbol(normalized)) return normalizeInvestmentSymbol(normalized);
+
+    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(normalized)}&quotesCount=8&newsCount=0`)}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('No se pudo resolver la accion por nombre.');
+
+    const data = await response.json();
+    const candidates = Array.isArray(data.quotes) ? data.quotes : [];
+    const pick = candidates.find((q) => {
+        const qt = String(q.quoteType || '').toUpperCase();
+        return ['EQUITY', 'ETF'].includes(qt) && q.symbol;
+    });
+
+    return pick ? normalizeInvestmentSymbol(pick.symbol) : '';
+}
+
+async function ensureInvestmentSymbols() {
+    state.portfolio.inversiones = state.portfolio.inversiones.map((inv) => ({
+        ...inv,
+        symbol: normalizeInvestmentSymbol(inv.symbol)
+    }));
+
+    const unresolved = state.portfolio.inversiones.filter((i) => !i.symbol);
+    if (!unresolved.length) return;
+
+    await Promise.all(unresolved.map(async (inv) => {
+        try {
+            const resolved = await resolveInvestmentSymbolByName(inv.name);
+            if (resolved) inv.symbol = resolved;
+        } catch (err) {
+            console.warn('No se pudo resolver simbolo para accion:', inv.name, err);
+        }
+    }));
+}
+
 function updateCurrencyButton() {
     const btn = document.getElementById('btn-currency');
     if (btn) btn.textContent = state.currency;
@@ -244,6 +327,7 @@ function setTab(t) {
 
     if (t === 'cripto') refreshCryptoPrices();
     if (t === 'fondos') refreshFundPrices();
+    if (t === 'inversiones') refreshInvestmentPrices();
     save();
 }
 
@@ -267,6 +351,7 @@ function toggleCurrency() {
     renderList();
     refreshCryptoPrices();
     refreshFundPrices();
+    refreshInvestmentPrices();
 }
 
 function toggleGoals() {
@@ -430,6 +515,102 @@ function deleteFondo(fondoName) {
     updateTotalsAndRisk();
     renderGoals();
     if (state.tab === 'fondos') renderList();
+}
+
+function openInvestmentEditor(investmentName) {
+    const investment = state.portfolio.inversiones.find((i) => i.name === investmentName);
+    if (!investment) return;
+
+    editingInvestment = investmentName;
+
+    const nameInput = document.getElementById('edit-investment-name');
+    const quantityInput = document.getElementById('edit-investment-quantity');
+    const priceInput = document.getElementById('edit-investment-price');
+    const symbolInput = document.getElementById('edit-investment-symbol');
+    const modal = document.getElementById('investment-editor-modal');
+
+    if (!nameInput || !quantityInput || !priceInput || !symbolInput || !modal) return;
+
+    nameInput.value = investment.name || '';
+    quantityInput.value = investment.quantity || 0;
+    priceInput.value = investment.price || 0;
+    symbolInput.value = investment.symbol || '';
+
+    modal.classList.add('open');
+}
+
+function closeInvestmentEditor() {
+    const modal = document.getElementById('investment-editor-modal');
+    if (modal) modal.classList.remove('open');
+    editingInvestment = null;
+}
+
+function saveInvestmentEdit() {
+    const nameInput = document.getElementById('edit-investment-name');
+    const quantityInput = document.getElementById('edit-investment-quantity');
+    const priceInput = document.getElementById('edit-investment-price');
+    const symbolInput = document.getElementById('edit-investment-symbol');
+
+    if (!nameInput || !quantityInput || !priceInput || !symbolInput || !editingInvestment) return;
+
+    const newName = nameInput.value.trim();
+    const newQuantity = Number(quantityInput.value);
+    const newPrice = Number(priceInput.value);
+    const rawSymbol = String(symbolInput.value || '').trim();
+    const newSymbol = normalizeInvestmentSymbol(rawSymbol);
+
+    if (!newName || newQuantity <= 0 || newPrice <= 0) {
+        alert('Datos invalidos.');
+        return;
+    }
+
+    if (rawSymbol && !newSymbol) {
+        alert('El ticker no es valido. Ejemplos: AAPL, MSFT, SAN.MC, IBE.MC');
+        return;
+    }
+
+    const investment = state.portfolio.inversiones.find((i) => i.name === editingInvestment);
+    if (investment) {
+        investment.name = newName;
+        investment.quantity = newQuantity;
+        investment.price = newPrice;
+        investment.symbol = newSymbol;
+        if (newSymbol) {
+            investment.currentPrice = null;
+            investment.dayChangePct = null;
+            investment.updatedAt = null;
+        }
+    }
+
+    state.portfolio.movimientos.push({
+        type: 'edicion-bolsa',
+        name: newName,
+        quantity: newQuantity,
+        price: newPrice,
+        timestamp: Date.now()
+    });
+
+    save();
+    updateTotalsAndRisk();
+    if (state.tab === 'inversiones') renderList();
+    closeInvestmentEditor();
+    refreshInvestmentPrices();
+}
+
+function deleteInvestment(investmentName) {
+    if (!confirm(`Estas seguro de que quieres eliminar la accion "${investmentName}"?`)) return;
+
+    state.portfolio.inversiones = state.portfolio.inversiones.filter((i) => i.name !== investmentName);
+
+    state.portfolio.movimientos.push({
+        type: 'eliminar-bolsa',
+        name: investmentName,
+        timestamp: Date.now()
+    });
+
+    save();
+    updateTotalsAndRisk();
+    if (state.tab === 'inversiones') renderList();
 }
 
 function openTokenEditor(ticker) {
@@ -649,6 +830,10 @@ function updateFormUI() {
             nameInput.placeholder = 'Nombre del fondo o Nombre | ID (ej: Vanguard | VWCE.DE)';
             helper.textContent = 'Fondos: puedes poner ID (ticker) manual o solo nombre; se intentara conectar automaticamente para precio y evolucion en vivo.';
             helper.classList.remove('hidden');
+        } else if (category === 'inversiones') {
+            nameInput.placeholder = 'Nombre de accion o Nombre | Ticker (ej: Apple | AAPL)';
+            helper.textContent = 'Bolsa: puedes escribir ticker manual o solo nombre para intentar resolver cotizacion en vivo.';
+            helper.classList.remove('hidden');
         } else {
             nameInput.placeholder = 'Nombre';
         }
@@ -749,6 +934,35 @@ function addItem() {
             dayChangePct: null,
             updatedAt: null
         });
+    } else if (category === 'inversiones') {
+        if (!name || val1 <= 0 || val2 <= 0) {
+            alert('Completa los datos requeridos.');
+            return;
+        }
+
+        const parsed = parseInvestmentInput(name);
+        if (!parsed.name) {
+            alert('Introduce nombre de accion valido.');
+            return;
+        }
+
+        state.portfolio.inversiones.push({
+            name: parsed.name,
+            symbol: normalizeInvestmentSymbol(parsed.symbol),
+            quantity: val1,
+            price: val2,
+            currentPrice: null,
+            dayChangePct: null,
+            updatedAt: null
+        });
+
+        state.portfolio.movimientos.push({
+            type: 'compra-bolsa',
+            name: parsed.name,
+            quantity: val1,
+            price: val2,
+            timestamp: Date.now()
+        });
     } else {
         if (!name || val1 <= 0 || val2 <= 0) {
             alert('Completa los datos requeridos.');
@@ -769,6 +983,7 @@ function addItem() {
 
     if (category === 'cripto') refreshCryptoPrices();
     if (category === 'fondos') refreshFundPrices();
+    if (category === 'inversiones') refreshInvestmentPrices();
 }
 
 function getCryptoCoinIds() {
@@ -943,11 +1158,111 @@ async function refreshFundPrices() {
     }
 }
 
+async function refreshInvestmentPrices() {
+    if (fetchingInvestmentPrices) return;
+    if (!state.portfolio.inversiones.length) {
+        investmentPriceState = {
+            status: 'idle',
+            message: 'Sin acciones para consultar',
+            updatedAt: null
+        };
+        updateTotalsAndRisk();
+        if (state.tab === 'inversiones') renderList();
+        return;
+    }
+
+    fetchingInvestmentPrices = true;
+    investmentPriceState = {
+        status: 'loading',
+        message: 'Actualizando acciones en vivo',
+        updatedAt: investmentPriceState.updatedAt
+    };
+    if (state.tab === 'inversiones') renderList();
+
+    try {
+        await ensureInvestmentSymbols();
+        const symbols = [...new Set(
+            state.portfolio.inversiones
+                .map((i) => normalizeInvestmentSymbol(i.symbol))
+                .filter(Boolean)
+        )];
+
+        if (!symbols.length) {
+            investmentPriceState = {
+                status: 'error',
+                message: 'No se pudo resolver ticker de acciones',
+                updatedAt: investmentPriceState.updatedAt
+            };
+            if (state.tab === 'inversiones') renderList();
+            return;
+        }
+
+        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(quoteUrl)}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('No se pudieron obtener cotizaciones de acciones.');
+
+        const data = await response.json();
+        const results = Array.isArray(data?.quoteResponse?.result) ? data.quoteResponse.result : [];
+        const bySymbol = Object.fromEntries(
+            results.map((r) => [normalizeInvestmentSymbol(r.symbol), r])
+        );
+
+        const now = Date.now();
+        state.portfolio.inversiones = state.portfolio.inversiones.map((item) => {
+            const symbol = normalizeInvestmentSymbol(item.symbol);
+            const quote = bySymbol[symbol];
+            if (!quote) return item;
+
+            const livePrice = Number(quote.regularMarketPrice);
+            const changePct = Number(quote.regularMarketChangePercent);
+
+            return {
+                ...item,
+                currentPrice: Number.isFinite(livePrice) && livePrice > 0 ? livePrice : item.currentPrice,
+                dayChangePct: Number.isFinite(changePct) ? changePct : item.dayChangePct,
+                updatedAt: now
+            };
+        });
+
+        investmentPriceState = {
+            status: 'live',
+            message: 'Bolsa conectada en vivo',
+            updatedAt: now
+        };
+
+        const stillUnresolved = state.portfolio.inversiones.filter((i) => !i.symbol).length;
+        if (stillUnresolved > 0) {
+            investmentPriceState = {
+                status: 'error',
+                message: `${stillUnresolved} accion(es) sin ticker valido`,
+                updatedAt: now
+            };
+        }
+
+        save();
+        updateTotalsAndRisk();
+        if (state.tab === 'inversiones') renderList();
+        if (state.tab === 'analisis') initChart();
+    } catch (err) {
+        console.error(err);
+        investmentPriceState = {
+            status: 'error',
+            message: 'Error al actualizar bolsa, reintentando',
+            updatedAt: investmentPriceState.updatedAt
+        };
+        if (state.tab === 'inversiones') renderList();
+    } finally {
+        fetchingInvestmentPrices = false;
+    }
+}
+
 function startPriceAutoRefresh() {
     if (priceRefreshTimer) clearInterval(priceRefreshTimer);
     priceRefreshTimer = setInterval(() => {
         refreshCryptoPrices();
         refreshFundPrices();
+        refreshInvestmentPrices();
     }, 30000);
 }
 
@@ -967,6 +1282,11 @@ function renderList() {
 
     if (state.tab === 'fondos') {
         renderFondosList(cont);
+        return;
+    }
+
+    if (state.tab === 'inversiones') {
+        renderInversionesList(cont);
         return;
     }
 
@@ -1072,6 +1392,63 @@ function renderFondosList(cont) {
                         <div class="flex gap-2">
                             <button onclick="openFondoEditor('${fondo.name}')" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg">✏️</button>
                             <button onclick="deleteFondo('${fondo.name}')" class="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+function renderInversionesList(cont) {
+    const inversiones = state.portfolio.inversiones;
+    if (!inversiones.length) {
+        cont.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                <p class="text-slate-400 font-bold uppercase text-[10px] tracking-widest italic">No hay acciones en bolsa</p>
+            </div>
+        `;
+        return;
+    }
+
+    const statusClass = investmentPriceState.status === 'live'
+        ? 'live'
+        : investmentPriceState.status === 'error'
+            ? 'error'
+            : 'loading';
+
+    const statusHtml = `
+        <div class="crypto-status-banner">
+            <span class="crypto-status-pill ${statusClass}">${investmentPriceState.message}</span>
+            <span class="crypto-status-time">Actualizado ${formatTimeAgo(investmentPriceState.updatedAt)}</span>
+        </div>
+    `;
+
+    cont.innerHTML = statusHtml + inversiones
+        .map((inv) => {
+            const qty = Number(inv.quantity) || 0;
+            const dayChange = Number(inv.dayChangePct);
+            const daySignal = Number.isFinite(dayChange) && dayChange >= 0 ? '+' : '';
+            const hasDayChange = Number.isFinite(dayChange);
+            const dayClass = hasDayChange && dayChange >= 0 ? 'crypto-pnl-positive' : hasDayChange ? 'crypto-pnl-negative' : 'text-slate-400';
+            const { buyValue, currentValue, pnl, pnlPct, hasLivePrice } = getInvestmentLiveValue(inv);
+            const pnlSignal = pnl >= 0 ? '+' : '';
+            const pnlClass = pnl >= 0 ? 'crypto-pnl-positive' : 'crypto-pnl-negative';
+
+            return `
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-black text-sm uppercase">${inv.name}</p>
+                            <p class="text-xs text-slate-500 mt-1">Cantidad: ${qty.toFixed(4)} | Compra: ${formatMoney(inv.price)} | Ticker: ${inv.symbol || 'Sin ticker'}</p>
+                            <p class="text-xs text-slate-500 mt-1">Actual: ${hasLivePrice ? formatMoney(inv.currentPrice) : 'Sin dato'} | Valor: ${formatMoney(currentValue)}</p>
+                            <p class="text-xs font-bold mt-1 ${pnlClass}">P/L total: ${pnlSignal}${formatMoney(pnl)} (${pnlSignal}${formatPercent(pnlPct)})</p>
+                            <p class="text-xs font-bold mt-1 ${dayClass}">Evolucion intradia: ${hasDayChange ? `${daySignal}${formatPercent(dayChange)}` : 'Sin dato en vivo'}</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Invertido: ${formatMoney(buyValue)} · Actualizado ${formatTimeAgo(inv.updatedAt)}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openInvestmentEditor('${inv.name}')" class="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg">✏️</button>
+                            <button onclick="deleteInvestment('${inv.name}')" class="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg">🗑️</button>
                         </div>
                     </div>
                 </div>
@@ -1189,7 +1566,7 @@ function toggleCryptoDetails(ticker) {
 
 function calculateTotals() {
     const banco = state.portfolio.banco.reduce((sum, item) => sum + (Number(item.balance) || 0), 0);
-    const inversiones = state.portfolio.inversiones.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.price) || 0)), 0);
+    const inversiones = state.portfolio.inversiones.reduce((sum, item) => sum + getInvestmentLiveValue(item).currentValue, 0);
     const fondos = state.portfolio.fondos.reduce((sum, item) => sum + getFundLiveValue(item).currentValue, 0);
     const cripto = state.portfolio.cripto.reduce((sum, item) => sum + getCryptoLiveValue(item).currentValue, 0);
 
@@ -1324,4 +1701,5 @@ window.onload = () => {
     startPriceAutoRefresh();
     refreshCryptoPrices();
     refreshFundPrices();
+    refreshInvestmentPrices();
 };

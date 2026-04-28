@@ -161,6 +161,34 @@
         </div>
     </div>
 
+    <div id="investment-editor-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-black uppercase">Editar Posicion en Bolsa</h3>
+                <button onclick="closeInvestmentEditor()" class="text-2xl font-bold">✕</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-black uppercase mb-2 text-slate-400">Nombre</label>
+                    <input type="text" id="edit-investment-name" class="input-pro">
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase mb-2 text-slate-400">Cantidad</label>
+                    <input type="number" id="edit-investment-quantity" class="input-pro" step="0.0001">
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase mb-2 text-slate-400">Precio medio de compra (€)</label>
+                    <input type="number" id="edit-investment-price" class="input-pro" step="0.01">
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase mb-2 text-slate-400">Ticker (opcional)</label>
+                    <input type="text" id="edit-investment-symbol" class="input-pro" placeholder="Ej: AAPL, SAN.MC, IBE.MC">
+                </div>
+                <button onclick="saveInvestmentEdit()" class="w-full py-3 bg-blue-600 text-white font-black rounded-xl text-sm uppercase">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
     <div class="max-w-6xl mx-auto">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
             <div class="flex items-center gap-5">
